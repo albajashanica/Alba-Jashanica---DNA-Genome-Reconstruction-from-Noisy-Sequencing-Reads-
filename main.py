@@ -1,1 +1,1 @@
-from simulator import random_genome, reverse_complement
+from simulator import random_genome, reverse_complement, add_errors,simulate_reads
