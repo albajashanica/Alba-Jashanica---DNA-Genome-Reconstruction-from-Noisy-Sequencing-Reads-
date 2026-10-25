@@ -19,6 +19,29 @@ def find_candidates_with_offset(oriented, index, k, min_shared=3):
                 candidates[(a, b)] = off
     return candidates
 
+def banded_overlap(a_suffix, b, band=5):
+    m, n = len(a_suffix), len(b)
+    INF = 10**9
+    prev = [INF] * (n + 1)
+    for j in range(0, min(band, n) + 1):
+        prev[j] = j
+    for i in range(1, m + 1):
+        cur = [INF] * (n + 1)
+        lo, hi = max(0, i - band), min(n, i + band)
+        for j in range(lo, hi + 1):
+            best = prev[j] + 1
+            if j > 0:
+                cost = 0 if a_suffix[i - 1] == b[j - 1] else 1
+                best = min(best, prev[j - 1] + cost, cur[j - 1] + 1)
+            cur[j] = best
+        prev = cur
+    lo, hi = max(0, m - band), min(n, m + band)
+    if lo > hi:
+        return None
+    j_best = min(range(lo, hi + 1), key=lambda j: prev[j])
+    return prev[j_best]
+
+
 if __name__ == "__main__":
     k = 12
     genome = random_genome(2000)
