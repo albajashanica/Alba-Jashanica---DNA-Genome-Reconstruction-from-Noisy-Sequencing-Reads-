@@ -42,13 +42,35 @@ def banded_overlap(a_suffix, b, band=5):
     return prev[j_best]
 
 
+def verify_candidates(oriented, candidates, min_overlap=30, max_error=0.08):
+    overlaps = []
+    for (a, b), off in candidates.items():
+        seq_a, seq_b = oriented[a][2], oriented[b][2]
+        ov_len = len(seq_a) - off
+        if ov_len < min_overlap:
+            continue
+        edits = banded_overlap(seq_a[off:], seq_b)
+        if edits is None:
+            continue
+        error_rate = edits / ov_len
+        if error_rate <= max_error:
+            overlaps.append((a, b, ov_len, error_rate))
+    return overlaps
+
 if __name__ == "__main__":
     k = 12
     genome = random_genome(2000)
     reads = simulate_reads(genome, num_reads=300)
-    
+
     oriented = build_oriented_reads(reads)
     index = build_kmer_index(oriented, k)
     candidates = find_candidates_with_offset(oriented, index, k)
-    
+    overlaps = verify_candidates(oriented, candidates)
+
     print("Kandidate:", len(candidates))
+    print("Overlap te pranuar:", len(overlaps))
+    if overlaps:
+        avg_len = sum(o[2] for o in overlaps) / len(overlaps)
+        avg_q = sum(1 - o[3] for o in overlaps) / len(overlaps)
+        print("Gjatesia mesatare e overlap:", round(avg_len, 1))
+        print("Cilesia mesatare (1 - error rate):", round(avg_q, 3))
