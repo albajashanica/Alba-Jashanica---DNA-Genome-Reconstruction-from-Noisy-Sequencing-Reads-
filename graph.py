@@ -9,6 +9,15 @@ def build_overlap_graph(overlaps):
         graph[a][b] = ov_len * (1 - err)
     return graph
 
+def graph_stats(graph, num_nodes):
+    num_edges = sum(len(nbrs) for nbrs in graph.values())
+    no_out = sum(1 for n in range(num_nodes) if not graph.get(n))
+    mirrored = sum(
+        1 for a, nbrs in graph.items() for b in nbrs
+        if (a ^ 1) in graph.get(b ^ 1, {})
+    )
+    return num_edges, no_out, mirrored
+
 if __name__ == "__main__":
     k = 12
     genome = random_genome(2000)
@@ -23,4 +32,9 @@ if __name__ == "__main__":
     n = len(oriented)
     
     print("Nyje:", n)
-    print("Grafi u ndërtua me sukses!")
+    edges, no_out, mirrored = graph_stats(graph, n)
+
+    print("Skaje:", edges)
+    print("Shkalla mesatare dalese:", round(edges / n, 2))
+    print("Nyje pa skaj dales:", no_out)
+    print("Skaje me pasqyre:", mirrored, "nga", edges)
