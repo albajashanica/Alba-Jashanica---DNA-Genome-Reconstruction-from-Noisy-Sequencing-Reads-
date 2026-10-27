@@ -38,3 +38,6 @@ if __name__ == "__main__":
     print("Shkalla mesatare dalese:", round(edges / n, 2))
     print("Nyje pa skaj dales:", no_out)
     print("Skaje me pasqyre:", mirrored, "nga", edges)
+    best = max(((a, b, w) for a, nb in graph.items() for b, w in nb.items()),
+               key=lambda x: x[2])
+    print("Skaji me peshe me te madhe:", best)
