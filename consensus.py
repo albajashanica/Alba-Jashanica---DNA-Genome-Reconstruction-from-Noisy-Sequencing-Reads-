@@ -48,6 +48,27 @@ def align_read(read, contig, cindex, k, band=10):
         return None
     return start, ops
 
+def build_pileup(contig, reads, k):
+    cindex = defaultdict(list)
+    for p in range(len(contig) - k + 1):
+        cindex[contig[p:p + k]].append(p)
+    counts = [defaultdict(int) for _ in contig]
+    ins = defaultdict(lambda: defaultdict(int))
+    used = 0
+    for read in reads:
+        res = align_read(read, contig, cindex, k)
+        if res is None:
+            continue
+        used += 1
+        start, ops = res
+        for t, jj, base in ops:
+            pos = start + jj
+            if t == "I":
+                ins[pos][base] += 1
+            elif 0 <= pos < len(contig):
+                counts[pos][base] += 1
+    return counts, ins, used
+
 if __name__ == "__main__":
     k = 12
     genome = random_genome(2000)
@@ -60,3 +81,4 @@ if __name__ == "__main__":
     graph = build_graph(overlaps)
     contigs = sorted(greedy_assemble(oriented, graph), key=len, reverse=True)
     draft = contigs[0]
+    counts, ins, used = build_pileup(draft, reads, k)
