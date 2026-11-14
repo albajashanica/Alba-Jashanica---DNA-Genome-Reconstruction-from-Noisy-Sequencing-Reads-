@@ -86,6 +86,25 @@ def build_consensus(contig, counts, ins):
                 out.append(b)
     return "".join(out)
 
+def edit_distance_banded(a, b, band=60):
+    n, m = len(a), len(b)
+    INF = 10 ** 9
+    prev = {j: j for j in range(0, min(m, band) + 1)}
+    for i in range(1, n + 1):
+        cur = {}
+        for j in range(max(0, i - band), min(m, i + band) + 1):
+            best = prev.get(j, INF) + 1
+            if j > 0:
+                best = min(best,
+                           prev.get(j - 1, INF) + (a[i - 1] != b[j - 1]),
+                           cur.get(j - 1, INF) + 1)
+            cur[j] = best
+        prev = cur
+    return prev.get(m, INF)
+
+def distance_to_genome(seq, genome):
+    return min(edit_distance_banded(seq, genome),
+               edit_distance_banded(reverse_complement(seq), genome))
 
 if __name__ == "__main__":
     k = 12
@@ -99,5 +118,15 @@ if __name__ == "__main__":
     graph = build_graph(overlaps)
     contigs = sorted(greedy_assemble(oriented, graph), key=len, reverse=True)
     draft = contigs[0]
+
     counts, ins, used = build_pileup(draft, reads, k)
     corrected = build_consensus(draft, counts, ins)
+
+    print("Reads te shtrira mbi contig:", used, "nga", len(reads))
+    print("Mbulimi mesatar:", round(sum(sum(c.values()) for c in counts) / len(draft), 1))
+    print("Gjatesia draft / e korrigjuar:", len(draft), "/", len(corrected))
+    d1 = distance_to_genome(draft, genome)
+    d2 = distance_to_genome(corrected, genome)
+    print("Edit distance para korrigjimit:", d1)
+    print("Edit distance pas korrigjimit:", d2)
+    print("Saktesia pas korrigjimit:", round(1 - d2 / len(genome), 4))
