@@ -69,6 +69,24 @@ def build_pileup(contig, reads, k):
                 counts[pos][base] += 1
     return counts, ins, used
 
+def build_consensus(contig, counts, ins):
+    out = []
+    for p, base in enumerate(contig):
+        c = counts[p]
+        total = sum(c.values())
+        if total == 0:
+            out.append(base)
+            continue
+        best = max(c, key=c.get)
+        if best != "-":
+            out.append(best)
+        if p in ins:
+            b, cnt = max(ins[p].items(), key=lambda x: x[1])
+            if cnt > total / 2:
+                out.append(b)
+    return "".join(out)
+
+
 if __name__ == "__main__":
     k = 12
     genome = random_genome(2000)
@@ -82,3 +100,4 @@ if __name__ == "__main__":
     contigs = sorted(greedy_assemble(oriented, graph), key=len, reverse=True)
     draft = contigs[0]
     counts, ins, used = build_pileup(draft, reads, k)
+    corrected = build_consensus(draft, counts, ins)
