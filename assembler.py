@@ -40,7 +40,6 @@ def greedy_assemble(oriented, graph):
         contigs.append(contig)
     return contigs
 
-
 if __name__ == "__main__":
     k = 12
     genome = random_genome(2000)
@@ -53,3 +52,11 @@ if __name__ == "__main__":
     graph = build_graph(overlaps)
 
     contigs = sorted(greedy_assemble(oriented, graph), key=len, reverse=True)
+    print("Numri i contigs:", len(contigs))
+    print("Gjatesite e 5 me te medhenjve:", [len(c) for c in contigs[:5]])
+
+    longest = contigs[0]
+    probe = longest[len(longest) // 2: len(longest) // 2 + 50]
+    in_genome = probe in genome or probe in reverse_complement(genome)
+    print("Prove 50 bazash e contig-ut ndodhet ne genom (ose RC):", in_genome)
+    print("Fillimi i contig-ut me te gjate:", longest[:60])
