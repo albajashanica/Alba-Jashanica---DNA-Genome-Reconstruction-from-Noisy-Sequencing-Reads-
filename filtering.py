@@ -18,3 +18,12 @@ def variant_support(variant, reference, reads, flank=12):
         if any(alt_win in s for s in both):
             alt_support += 1
     return alt_support, ref_support
+
+
+def filter_variants(variants, reference, reads, min_alt=3):
+    rows = []
+    for v in variants:
+        alt_s, ref_s = variant_support(v, reference, reads)
+        passed = alt_s >= min_alt and alt_s > ref_s
+        rows.append((v, alt_s, ref_s, passed))
+    return rows
