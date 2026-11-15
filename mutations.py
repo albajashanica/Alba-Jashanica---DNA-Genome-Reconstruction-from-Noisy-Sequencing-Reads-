@@ -1,4 +1,3 @@
-
 import random
 from simulator import random_genome, simulate_reads, reverse_complement
 from indexing import build_oriented_reads, build_kmer_index
@@ -35,8 +34,51 @@ def mutate_genome(genome, n_sub=5, n_ins=3, n_del=3, seed=7):
             sample = sample[:p] + sample[p + 1:]
     return sample, sorted(truth, key=lambda t: t[1])
 
+def align_to_reference(cons, ref, band=60):
+    n, m = len(cons), len(ref)
+    INF = 10 ** 9
+    dp = {(0, 0): 0}
+    for j in range(1, min(m, band) + 1):
+        dp[(0, j)] = j
+    for i in range(1, n + 1):
+        for j in range(max(0, i - band), min(m, i + band) + 1):
+            best = dp.get((i - 1, j), INF) + 1
+            if j > 0:
+                cost = 0 if cons[i - 1] == ref[j - 1] else 1
+                best = min(best,
+                           dp.get((i - 1, j - 1), INF) + cost,
+                           dp.get((i, j - 1), INF) + 1)
+            dp[(i, j)] = best
+    i, j = n, m
+    events = []
+    while i > 0 or j > 0:
+        cur = dp[(i, j)]
+        if i > 0 and j > 0:
+            cost = 0 if cons[i - 1] == ref[j - 1] else 1
+            if cur == dp.get((i - 1, j - 1), INF) + cost:
+                if cost:
+                    events.append(("SUB", j - 1, ref[j - 1], cons[i - 1]))
+                i -= 1
+                j -= 1
+                continue
+        if i > 0 and cur == dp.get((i - 1, j), INF) + 1:
+            events.append(("INS", j, "", cons[i - 1]))
+            i -= 1
+        else:
+            events.append(("DEL", j - 1, ref[j - 1], ""))
+            j -= 1
+    events.reverse()
+    return events
+
 if __name__ == "__main__":
     k = 12
     reference = random_genome(2000)
     sample, truth = mutate_genome(reference)
     reads = simulate_reads(sample, num_reads=300)
+
+    oriented = build_oriented_reads(reads)
+    index = build_kmer_index(oriented, k)
+    candidates = find_candidates_with_offset(oriented, index, k)
+    overlaps = verify_candidates(oriented, candidates)
+    graph = build_graph(overlaps)
+    contigs = sorted(greedy_assemble(oriented, graph), key=len, reverse=True)
