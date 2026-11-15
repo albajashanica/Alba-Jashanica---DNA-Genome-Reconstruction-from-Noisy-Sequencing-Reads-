@@ -19,7 +19,6 @@ def variant_support(variant, reference, reads, flank=12):
             alt_support += 1
     return alt_support, ref_support
 
-
 def filter_variants(variants, reference, reads, min_alt=3):
     rows = []
     for v in variants:
@@ -27,7 +26,6 @@ def filter_variants(variants, reference, reads, min_alt=3):
         passed = alt_s >= min_alt and alt_s > ref_s
         rows.append((v, alt_s, ref_s, passed))
     return rows
-
 
 if __name__ == "__main__":
     k = 12
@@ -58,3 +56,9 @@ if __name__ == "__main__":
         print(v, "|", a, "|", r, "|", "PASS" if ok else "FILTERED")
 
     final = [v for v, a, r, ok in rows if ok]
+    tp, fp, fn = evaluate(final, truth)
+    print("Para filtrit: variante =", len(detected))
+    print("Pas filtrit:  variante =", len(final))
+    print("Te sakta:", tp, "| Alarme te rreme:", fp, "| Te humbura:", fn)
+    print("Precision:", round(tp / max(1, len(final)), 3))
+    print("Recall:", round(tp / max(1, len(truth)), 3))
