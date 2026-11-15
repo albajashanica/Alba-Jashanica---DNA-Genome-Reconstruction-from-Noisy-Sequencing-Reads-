@@ -121,3 +121,13 @@ if __name__ == "__main__":
     edge = 15
     detected = [e for e in events if edge <= e[1] <= len(reference) - edge]
     tp, fp, fn = evaluate(detected, truth)
+    
+    print("Mutacione te futura:", len(truth))
+    for t in truth:
+        print("  ", t)
+    print("Variante te zbuluara:", len(detected))
+    for d in detected:
+        print("  ", d)
+    print("Te sakta:", tp, "| Alarme te rreme:", fp, "| Te humbura:", fn)
+    print("Precision:", round(tp / max(1, len(detected)), 3))
+    print("Recall:", round(tp / max(1, len(truth)), 3))
