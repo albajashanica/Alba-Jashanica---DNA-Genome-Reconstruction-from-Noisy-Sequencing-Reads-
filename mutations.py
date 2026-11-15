@@ -69,6 +69,33 @@ def align_to_reference(cons, ref, band=60):
             j -= 1
     events.reverse()
     return events
+def merge_events(events):
+    merged = []
+    for kind, p, ref, alt in events:
+        if merged:
+            lk, lp, lref, lalt = merged[-1]
+            if kind == "DEL" and lk == "DEL" and p == lp + len(lref):
+                merged[-1] = (lk, lp, lref + ref, lalt)
+                continue
+            if kind == "INS" and lk == "INS" and p == lp:
+                merged[-1] = (lk, lp, lref, lalt + alt)
+                continue
+        merged.append((kind, p, ref, alt))
+    return merged
+
+
+def evaluate(detected, truth, tol=3):
+    matched = set()
+    tp = 0
+    for d in detected:
+        for idx, t in enumerate(truth):
+            if idx in matched:
+                continue
+            if d[0] == t[0] and abs(d[1] - t[1]) <= tol and (d[0] != "SUB" or d[3] == t[3]):
+                matched.add(idx)
+                tp += 1
+                break
+    return tp, len(detected) - tp, len(truth) - tp
 
 if __name__ == "__main__":
     k = 12
@@ -82,3 +109,15 @@ if __name__ == "__main__":
     overlaps = verify_candidates(oriented, candidates)
     graph = build_graph(overlaps)
     contigs = sorted(greedy_assemble(oriented, graph), key=len, reverse=True)
+
+    counts, ins, used = build_pileup(contigs[0], reads, k)
+    corrected = build_consensus(contigs[0], counts, ins)
+
+    rc = reverse_complement(corrected)
+    if edit_distance_banded(rc, reference) < edit_distance_banded(corrected, reference):
+        corrected = rc
+
+    events = merge_events(align_to_reference(corrected, reference))
+    edge = 15
+    detected = [e for e in events if edge <= e[1] <= len(reference) - edge]
+    tp, fp, fn = evaluate(detected, truth)
