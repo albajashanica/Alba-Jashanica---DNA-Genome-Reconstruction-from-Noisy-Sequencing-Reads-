@@ -87,5 +87,25 @@ def save_outputs(corrected, final_rows):
         for (kind, pos, ref, alt), a, r, _ in final_rows:
             f.write(f"{kind}\t{pos}\t{ref or '-'}\t{alt or '-'}\t{a}\t{r}\n")
 
+def print_report(s):
+    print("====== RAPORTI I RINDERTIMIT ======")
+    print(f"Reads te perdorura:            {s['reads_used']} / {s['reads_total']} ({s['pct_reads_used']}%)")
+    print(f"Nyje ne graf (2 orientime):    {s['nodes']}")
+    print(f"Krahasime naive (n^2):         {s['naive_comparisons']}")
+    print(f"Krahasime kandidate (index):   {s['candidate_comparisons']}")
+    print(f"Overlap te identifikuara:      {s['overlaps']}")
+    print(f"Gjatesia mesatare e overlap:   {s['avg_overlap_len']}")
+    print(f"Cilesia mesatare e overlap:    {s['avg_overlap_quality']}")
+    print(f"Numri i contigs (draft):       {s['contigs']}")
+    print(f"Gjatesia e rindertimit:        {s['reconstruction_length']} (e vertete: {s['true_length']})")
+    print(f"Edit distance vs mostra:       {s['edit_distance_sample']}")
+    print(f"Saktesia vs mostra:            {s['accuracy']}")
+    print(f"Edit distance vs referenca:    {s['edit_distance_reference']}")
+    print(f"Mutacione te futura:           {s['mutations_inserted']}")
+    print(f"Mutacione te zbuluara sakte:   {s['mutations_correct']}")
+    print(f"Alarme te rreme / te humbura:  {s['false_alarms']} / {s['missed']}")
+    print(f"Koha e ekzekutimit:            {s['time_s']} s")
+    print(f"Memoria maksimale (Python):    {s['peak_memory_mb']} MB")
+
 if __name__ == "__main__":  
     run_pipeline()  
