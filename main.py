@@ -77,5 +77,15 @@ def run_pipeline(genome_len=2000, num_reads=300, read_len=100, error_rate=0.01,
 
     return corrected, final_rows, stats
 
+def save_outputs(corrected, final_rows):
+    with open("reconstructed.fasta", "w") as f:
+        f.write(">reconstructed_genome length=" + str(len(corrected)) + "\n")
+        for i in range(0, len(corrected), 70):
+            f.write(corrected[i:i + 70] + "\n")
+    with open("variants_report.txt", "w") as f:
+        f.write("lloji\tpozicioni\tbaza_ref\tbaza_re\treads_variant\treads_ref\n")
+        for (kind, pos, ref, alt), a, r, _ in final_rows:
+            f.write(f"{kind}\t{pos}\t{ref or '-'}\t{alt or '-'}\t{a}\t{r}\n")
+
 if __name__ == "__main__":  
     run_pipeline()  
