@@ -46,8 +46,36 @@ def run_pipeline(genome_len=2000, num_reads=300, read_len=100, error_rate=0.01,
     elapsed = time.perf_counter() - t0
     peak = tracemalloc.get_traced_memory()[1]
     tracemalloc.stop()
+    
+    n = len(oriented)
+    ed_sample = edit_distance_banded(corrected, sample)
+    ed_ref = edit_distance_banded(corrected, reference)
+    tp, fp, fn = evaluate(final, truth)
+    stats = {
+        "reads_total": num_reads,
+        "reads_used": used,
+        "pct_reads_used": round(100 * used / num_reads, 1),
+        "nodes": n,
+        "naive_comparisons": n * (n - 1),
+        "candidate_comparisons": len(candidates),
+        "overlaps": len(overlaps),
+        "avg_overlap_len": round(sum(o[2] for o in overlaps) / max(1, len(overlaps)), 1),
+        "avg_overlap_quality": round(sum(1 - o[3] for o in overlaps) / max(1, len(overlaps)), 3),
+        "contigs": len(contigs),
+        "reconstruction_length": len(corrected),
+        "true_length": len(sample),
+        "edit_distance_sample": ed_sample,
+        "accuracy": round(1 - ed_sample / len(sample), 4),
+        "edit_distance_reference": ed_ref,
+        "mutations_inserted": len(truth),
+        "mutations_correct": tp,
+        "false_alarms": fp,
+        "missed": fn,
+        "time_s": round(elapsed, 2),
+        "peak_memory_mb": round(peak / 1024 / 1024, 2),
+    }
 
-    return corrected, final_rows
+    return corrected, final_rows, stats
 
 if __name__ == "__main__":  
     run_pipeline()  
