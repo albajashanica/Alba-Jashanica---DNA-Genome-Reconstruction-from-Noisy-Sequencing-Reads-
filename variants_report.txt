@@ -1,0 +1,12 @@
+lloji	pozicioni	baza_ref	baza_re	reads_variant	reads_ref
+DEL	156	A	-	12	0
+SUB	252	T	A	11	1
+INS	367	-	A	8	0
+SUB	723	A	C	5	0
+SUB	808	G	A	11	0
+SUB	868	T	A	13	0
+DEL	1157	T	-	8	0
+SUB	1253	A	C	10	0
+INS	1393	-	A	10	0
+INS	1740	-	T	5	0
+DEL	1921	A	-	7	0

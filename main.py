@@ -16,9 +16,8 @@ def run_pipeline(genome_len=2000, num_reads=300, read_len=100, error_rate=0.01,
     reference = random_genome(genome_len)
     sample, truth = mutate_genome(reference)
     reads = simulate_reads(sample, num_reads, read_len, error_rate)
-    print("reads:", len(reads)) 
-    
-    
+
+
     tracemalloc.start()
     t0 = time.perf_counter()
 
@@ -46,6 +45,7 @@ def run_pipeline(genome_len=2000, num_reads=300, read_len=100, error_rate=0.01,
     elapsed = time.perf_counter() - t0
     peak = tracemalloc.get_traced_memory()[1]
     tracemalloc.stop()
+
     
     n = len(oriented)
     ed_sample = edit_distance_banded(corrected, sample)
@@ -74,7 +74,6 @@ def run_pipeline(genome_len=2000, num_reads=300, read_len=100, error_rate=0.01,
         "time_s": round(elapsed, 2),
         "peak_memory_mb": round(peak / 1024 / 1024, 2),
     }
-
     return corrected, final_rows, stats
 
 def save_outputs(corrected, final_rows):
@@ -107,5 +106,20 @@ def print_report(s):
     print(f"Koha e ekzekutimit:            {s['time_s']} s")
     print(f"Memoria maksimale (Python):    {s['peak_memory_mb']} MB")
 
-if __name__ == "__main__":  
-    run_pipeline()  
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser(description="DNA genome reconstruction")
+    ap.add_argument("--genome-len", type=int, default=2000)
+    ap.add_argument("--reads", type=int, default=300)
+    ap.add_argument("--read-len", type=int, default=100)
+    ap.add_argument("--error-rate", type=float, default=0.01)
+    ap.add_argument("--k", type=int, default=12)
+    ap.add_argument("--min-overlap", type=int, default=30)
+    ap.add_argument("--max-error", type=float, default=0.08)
+    args = ap.parse_args()
+
+    corrected, final_rows, stats = run_pipeline(
+        args.genome_len, args.reads, args.read_len, args.error_rate,
+        args.k, args.min_overlap, args.max_error)
+    print_report(stats)
+    save_outputs(corrected, final_rows)
+    print("U ruajten: reconstructed.fasta dhe variants_report.txt")
