@@ -6,6 +6,7 @@ import tracemalloc
 from simulator import random_genome, simulate_reads
 from indexing import build_oriented_reads, build_kmer_index
 from overlap import find_candidates_with_offset, verify_candidates
+from assembler import build_graph, greedy_assemble
 
 def run_size(num_reads, coverage=15, read_len=100, k=12):
     genome_len = num_reads * read_len // coverage
@@ -24,9 +25,14 @@ def run_size(num_reads, coverage=15, read_len=100, k=12):
 
     overlaps = verify_candidates(oriented, candidates)
     t3 = time.perf_counter()
-
+    graph = build_graph(overlaps)
+    contigs = greedy_assemble(oriented, graph)
+    t4 = time.perf_counter()
+    peak = tracemalloc.get_traced_memory()[1]
     tracemalloc.stop()
 
+    n = len(oriented)
+    longest = max(len(c) for c in contigs)
     return {
         "reads": num_reads,
         "genome_len": genome_len,
