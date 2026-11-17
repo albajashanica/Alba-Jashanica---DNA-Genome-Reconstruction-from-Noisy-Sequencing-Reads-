@@ -39,6 +39,15 @@ def run_size(num_reads, coverage=15, read_len=100, k=12):
         "naive": len(oriented) * (len(oriented) - 1),
         "candidates": len(candidates),
         "overlaps": len(overlaps),
+        "contigs": len(contigs),
+        "longest_pct": round(100 * longest / genome_len, 1),
+        "t_index": round(t1 - t0, 2),
+        "t_cand": round(t2 - t1, 2),
+        "t_verify": round(t3 - t2, 2),
+        "t_graph": round(t4 - t3, 2),
+        "t_total": round(t4 - t0, 2),
+        "ms_per_read": round(1000 * (t4 - t0) / num_reads, 1),
+        "memory_mb": round(peak / 1024 / 1024, 1),
     }
 if __name__ == "__main__":
     print("Simulimi u realizua me sukses.")
