@@ -49,7 +49,23 @@ def run_size(num_reads, coverage=15, read_len=100, k=12):
         "ms_per_read": round(1000 * (t4 - t0) / num_reads, 1),
         "memory_mb": round(peak / 1024 / 1024, 1),
     }
+    
 if __name__ == "__main__":
-    print("Simulimi u realizua me sukses.")
-    r = run_size(300)
-    print(r)
+    sizes = [int(x) for x in sys.argv[1:]] or [300, 600, 1200, 2400, 4800]
+    results = []
+    print("reads  genomi  naive      kandidate  overlap  contig%  koha(s)  ms/read  mem(MB)")
+    for size in sizes:
+        r = run_size(size)
+        results.append(r)
+        print(f"{r['reads']:<6} {r['genome_len']:<7} {r['naive']:<10} {r['candidates']:<10} "
+              f"{r['overlaps']:<8} {r['longest_pct']:<8} {r['t_total']:<8} "
+              f"{r['ms_per_read']:<8} {r['memory_mb']}")
+
+    with open("scalability_results.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(results[0].keys()))
+        w.writeheader()
+        w.writerows(results)
+    print("U ruajt: scalability_results.csv")
+    
+    
+    
