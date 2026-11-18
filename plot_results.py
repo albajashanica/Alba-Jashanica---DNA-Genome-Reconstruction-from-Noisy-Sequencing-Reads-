@@ -1,6 +1,8 @@
 import csv
 import matplotlib.pyplot as plt
 
+from matplotlib.ticker import NullFormatter
+
 with open("scalability_results.csv") as f:
     rows = list(csv.DictReader(f))
 
@@ -28,3 +30,21 @@ axes[1].set_xlabel("Numri i reads")
 axes[1].set_ylabel("Sekonda")
 axes[1].legend()
 axes[1].grid(True, alpha=0.3)
+
+ideal_m = [mem[0] * r / reads[0] for r in reads]
+axes[2].plot(reads, mem, "o-", label="Memoria e matur")
+axes[2].plot(reads, ideal_m, "--", label="Rritje lineare ideale")
+axes[2].set_title("Memoria maksimale")
+axes[2].set_xlabel("Numri i reads")
+axes[2].set_ylabel("MB")
+axes[2].legend()
+axes[2].grid(True, alpha=0.3)
+
+axes[0].set_xticks(reads)
+axes[0].set_xticklabels(reads)
+axes[0].xaxis.set_minor_formatter(NullFormatter())
+
+plt.tight_layout()
+plt.savefig("scalability.png", dpi=150)
+print("U ruajt: scalability.png")
+plt.show()
