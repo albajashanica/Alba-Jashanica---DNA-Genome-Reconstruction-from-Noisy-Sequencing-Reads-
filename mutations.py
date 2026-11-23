@@ -36,6 +36,7 @@ def mutate_genome(genome, n_sub=5, n_ins=3, n_del=3, seed=7):
 
 def align_to_reference(cons, ref, band=60):
     n, m = len(cons), len(ref)
+    band = max(band, abs(n - m))
     INF = 10 ** 9
     dp = {(0, 0): 0}
     for j in range(1, min(m, band) + 1):

@@ -26,9 +26,7 @@ def greedy_assemble(oriented, graph):
         while True:
             best, best_w, best_ov = None, -1, 0
             for b, (w, ov_len) in graph.get(cur, {}).items():
-                if used[b]:
-                    continue
-                if len(oriented[b][2]) - ov_len < 1:   # b brenda cur, s'zgjeron
+                if used[b] or len(oriented[b][2]) - ov_len < 1:
                     continue
                 if w > best_w:
                     best, best_w, best_ov = b, w, ov_len

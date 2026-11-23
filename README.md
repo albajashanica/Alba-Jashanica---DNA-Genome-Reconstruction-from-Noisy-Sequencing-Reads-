@@ -4,16 +4,16 @@
 
 Ky projekt rindërton një sekuencë ADN-je nga reads të shkurtra, të parenditura dhe me gabime. Ai demonstron përdorimin e indeksimit me k-mer, zbulimin e overlap-eve, grafit të overlap-eve, montimit greedy dhe consensus-it. Projekti gjithashtu simulon variante dhe mat kohën e memorien për madhësi të ndryshme të dataset-it.
 
-Të dhënat krijohen nga simulatori i projektit, prandaj rezultatet shërbejnë për demonstrim dhe vlerësim të algoritmit.
+Projekti mbështet si të dhëna të simuluara për vlerësim, ashtu edhe reads nga skedarë FASTA/FASTQ (përfshirë `.gz`). Një referencë FASTA është opsionale; pa të, raportohen rezultatet e montimit, por nuk bëhet thirrje për variante.
 
 ## Si punon
 
-1. Krijohet një genom referencë dhe gjenerohen reads prej tij. Simulatori mund të shtojë gabime dhe të kthejë disa reads në orientimin reverse-complement.
+1. Reads merren nga një skedar FASTA/FASTQ ose gjenerohen nga simulatori. Simulatori mund të shtojë gabime dhe orientime reverse-complement.
 2. Krijohen të dy orientimet për secilin read dhe ndërtohet indeks k-mer për të gjetur shpejt reads që mund të mbivendosen.
 3. Kandidatët kontrollohen me edit distance për të vlerësuar cilësinë dhe gjatësinë e overlap-it.
-4. Overlap-et paraqiten si lidhje të peshuara në graf. Montimi greedy i bashkon reads në contig-e.
+4. Overlap-et paraqiten si lidhje të peshuara në graf. Montimi greedy zgjedh lidhjet më të forta pa përdorur një read dy herë dhe shmang ciklet.
 5. Reads rreshtohen mbi contig-un kryesor. Consensus-i zgjedh bazat me mbështetjen më të madhe për të prodhuar sekuencën e korrigjuar.
-6. Sekuenca krahasohet me referencën e simuluar për të gjetur dhe vlerësuar zëvendësime, inserime dhe fshirje.
+6. Kur jepet referencë, sekuenca krahasohet me të për të gjetur dhe vlerësuar zëvendësime, inserime dhe fshirje.
 
 ## Skedarët
 
@@ -49,6 +49,20 @@ Për të ndryshuar parametrat, për shembull:
 python main.py --genome-len 2000 --reads 300 --read-len 100 --error-rate 0.01 --k 12 --min-overlap 30 --max-error 0.08
 ```
 
+Për të montuar reads reale nga FASTA ose FASTQ. Kur jepet FASTQ, quality scores peshojnë votat e bazave në consensus:
+
+```bash
+python main.py --reads-file reads.fastq --k 15 --min-overlap 40 --max-error 0.08
+```
+
+Për të raportuar variacionet kundrejt një reference FASTA:
+
+```bash
+python main.py --reads-file reads.fastq --reference reference.fasta --k 15 --min-overlap 40 --max-error 0.08
+```
+
+Reads duhet të përmbajnë vetëm bazat A, C, G dhe T. Kur ka shumë reads ose referenca është e gjatë, zgjidh `k` dhe pragjet sipas gjatësisë së leximeve dhe mbulimit.
+
 Programi shtyp raportin në terminal dhe ruan sekuencën te `reconstructed.fasta`, ndërsa variantet i ruan te `variants_report.txt`.
 
 ## Testimi i shkallëzueshmërisë
@@ -65,7 +79,7 @@ Kjo komandë i ekzekuton testet me 5,000, 10,000 dhe 20,000 reads dhe i ruan rez
 python -u scalability.py 5000 10000 20000 --no-consensus --out scalability_results.csv
 ```
 
-CSV-ja përfshin kohën, memorien, numrin e kandidatëve dhe overlap-eve, si dhe përqindjen e genomit të mbuluar nga contig-u më i gjatë. Kur përdoret `--no-consensus`, statistikat që varen nga consensus-i nuk llogariten.
+CSV-ja përfshin kohën, memorien, numrin e kandidatëve dhe overlap-eve, si dhe përqindjen e genomit të mbuluar nga contig-u më i gjatë. Indeksi heq k-mer-at me mbi 200 shfaqje për të kufizuar listat e kandidatëve; kjo mund të ulë ndjeshmërinë në rajone shumë të përsëritura. Kur përdoret `--no-consensus`, statistikat që varen nga consensus-i nuk llogariten.
 
 Për të krijuar grafikun nga `scalability_results.csv`:
 
@@ -81,7 +95,7 @@ Pipeline-i raporton numrin e reads të përdorura, kandidatët dhe overlap-et e 
 
 ## Kufizime
 
-Montimi greedy është heuristik dhe mund të mos zgjidhë saktë rajonet e përsëritura ose overlap-et e paqarta. Rezultatet varen nga parametrat dhe nga të dhënat e simuluara. Pipeline-i i tanishëm demonstron metodat mbi të dhëna të gjeneruara nga projekti; nuk është mjet i validuar për analiza klinike.
+Montimi greedy është heuristik dhe mund të mos zgjidhë saktë rajonet e përsëritura ose overlap-et e paqarta. K-mer-at që shfaqen mbi 200 herë hiqen nga indeksi, gjë që mund të ulë ndjeshmërinë në rajone të përsëritura. Saktësia dhe zbulimi i varianteve kërkojnë referencë të njohur; rezultatet varen nga parametrat dhe mbulimi. Skripti i shkallëzueshmërisë raporton matje për madhësitë që ekzekutohen, por ekstrapolimi te qindra mijëra reads nuk është matje e drejtpërdrejtë. Projekti është për demonstrim dhe nuk është mjet i validuar për analiza klinike.
 
 
 

@@ -8,12 +8,21 @@ def build_oriented_reads(reads):
         oriented.append((i, "-", reverse_complement(r)))
     return oriented
 
-def build_kmer_index(oriented, k):
+def build_kmer_index(oriented, k, max_occurrences=200):
+    """Build an inverted index, omitting highly repetitive k-mers.
+
+    Common k-mers create enormous candidate lists and usually occur in repeats
+    that cannot uniquely place a read. Skipping those buckets bounds candidate
+    generation; callers can raise max_occurrences when repeat sensitivity is
+    more important than speed.
+    """
+    if k < 1:
+        raise ValueError("k must be positive")
     index = defaultdict(list)
     for node_id, (_, _, seq) in enumerate(oriented):
         for pos in range(len(seq) - k + 1):
             index[seq[pos:pos + k]].append((node_id, pos))
-    return index
+    return {mer: hits for mer, hits in index.items() if len(hits) <= max_occurrences}
 
 def find_candidates(oriented, index, k, min_shared=3):
     candidates = {}

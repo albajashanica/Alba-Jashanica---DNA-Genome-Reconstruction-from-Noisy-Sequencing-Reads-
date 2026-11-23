@@ -21,10 +21,11 @@ def reset_peak():
 
 def run_size(num_reads, coverage=30, read_len=100, k=12, error_rate=0.01,
              do_consensus=True, var_limit=1200):
+    tracemalloc.start()
     genome_len = num_reads * read_len // coverage
     reference = random_genome(genome_len)
 
-    # Mutacione te futura (rreth 1 per 300 baza)
+
     total_mut = genome_len // 300
     if total_mut >= 3:
         n_ins = max(1, total_mut // 4)
@@ -36,7 +37,6 @@ def run_size(num_reads, coverage=30, read_len=100, k=12, error_rate=0.01,
 
     reads = simulate_reads(sample, num_reads, read_len, error_rate)
 
-    tracemalloc.start()
     t0 = time.perf_counter()
 
     oriented = build_oriented_reads(reads)
@@ -96,6 +96,7 @@ def run_size(num_reads, coverage=30, read_len=100, k=12, error_rate=0.01,
         "overlaps": len(overlaps),
         "contigs": len(contigs),
         "longest_pct": round(100 * longest / genome_len, 1),
+        "total_contig_bases_pct": round(100 * sum(map(len, contigs)) / genome_len, 1),
         "reads_used_pct": round(100 * used / num_reads, 1) if used is not None else None,
         "t_index": round(t1 - t0, 2),
         "t_cand": round(t2 - t1, 2),
@@ -105,7 +106,7 @@ def run_size(num_reads, coverage=30, read_len=100, k=12, error_rate=0.01,
         "t_total": round(t_total, 2),
         "ms_per_read": round(1000 * t_total / num_reads, 1),
         "memory_mb": round(peak / 1024 / 1024, 1),
-        "mutations_true": len(truth) if var_limit >= num_reads else None,
+        "mutations_true": len(truth),
         "variants_found": n_variants,
         "variants_correct": tp,
         "false_alarms": fp,
@@ -173,7 +174,7 @@ def main():
 
     sizes = args.sizes or [300, 600, 1200, 2400, 4800, 9600, 19200]
     results = []
-    print("reads   genomi   naive        kandidate  overlap   contig%  perdorur%  "
+    print("reads   genomi   naive        kandidate  overlap   max%    bases%   perdorur%  "
           "koha(s)   ms/read  mem(MB)", flush=True)
 
     with open(args.out, "w", newline="") as f:
@@ -190,7 +191,7 @@ def main():
 
             used = r["reads_used_pct"] if r["reads_used_pct"] is not None else "-"
             print(f"{r['reads']:<7} {r['genome_len']:<8} {r['naive']:<12} {r['candidates']:<10} "
-                  f"{r['overlaps']:<9} {r['longest_pct']:<8} {used:<10} "
+                  f"{r['overlaps']:<9} {r['longest_pct']:<7} {r['total_contig_bases_pct']:<8} {used:<10} "
                   f"{r['t_total']:<9} {r['ms_per_read']:<8} {r['memory_mb']}", flush=True)
             if r["variants_found"] is not None:
                 print(f"        variante: {r['variants_correct']}/{r['mutations_true']} te sakta, "

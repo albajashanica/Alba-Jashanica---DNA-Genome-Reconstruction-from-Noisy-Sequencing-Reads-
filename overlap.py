@@ -8,7 +8,7 @@ def find_candidates_with_offset(oriented, index, k, min_shared=3):
         votes = defaultdict(int)
         for pos_a in range(len(seq_a) - k + 1):
             for b, pos_b in index[seq_a[pos_a:pos_a + k]]:
-                if oriented[b][0] != read_a and pos_a >= pos_b:
+                if b != a and oriented[b][0] != read_a and pos_a >= pos_b:
                     votes[(b, pos_a - pos_b)] += 1
         best = {}
         for (b, off), c in votes.items():
@@ -46,13 +46,24 @@ def verify_candidates(oriented, candidates, min_overlap=30, max_error=0.08):
     overlaps = []
     for (a, b), off in candidates.items():
         seq_a, seq_b = oriented[a][2], oriented[b][2]
-        ov_len = len(seq_a) - off
+        ov_len = min(len(seq_a) - off, len(seq_b))
         if ov_len < min_overlap:
             continue
-        edits = banded_overlap(seq_a[off:], seq_b)
+        band = max(5, int(ov_len * max_error) + 2)
+        # Most candidate overlaps contain only a few substitutions. A fast
+        # Hamming upper bound accepts those without allocating DP rows; use
+        # banded edit distance when indels or more errors need checking.
+        hamming = sum(x != y for x, y in zip(seq_a[off:off + ov_len], seq_b[:ov_len]))
+        max_edits = int(ov_len * max_error)
+        if hamming <= max_edits:
+            edits = hamming
+        else:
+            a_part = seq_a[off:off + min(len(seq_a) - off, ov_len + band)]
+            b_part = seq_b[:min(len(seq_b), ov_len + band)]
+            edits = banded_overlap(a_part, b_part, band=band)
         if edits is None:
             continue
-        error_rate = edits / ov_len
+        error_rate = edits / max(1, ov_len)
         if error_rate <= max_error:
             overlaps.append((a, b, ov_len, error_rate))
     return overlaps

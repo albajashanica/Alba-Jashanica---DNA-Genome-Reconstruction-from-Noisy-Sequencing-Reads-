@@ -18,16 +18,16 @@ def semi_global(read, window):
     ops = []  
     while i > 0:
         if j > 0 and dp[i][j] == dp[i - 1][j - 1] + (0 if read[i - 1] == window[j - 1] else 1):
-            ops.append(("M", j - 1, read[i - 1])); i -= 1; j -= 1
+            ops.append(("M", j - 1, read[i - 1], i - 1)); i -= 1; j -= 1
         elif dp[i][j] == dp[i - 1][j] + 1:
-            ops.append(("I", j - 1, read[i - 1])); i -= 1
+            ops.append(("I", j - 1, read[i - 1], i - 1)); i -= 1
         else:
-            ops.append(("D", j - 1, "-")); j -= 1
+            ops.append(("D", j - 1, "-", None)); j -= 1
     return edits, ops
 
-def align_read(read, contig, cindex, k, band=10):
+def align_read(read, contig, cindex, k, band=10, quality=None):
     best = None
-    for seq in (read, reverse_complement(read)):
+    for seq, qual in ((read, quality), (reverse_complement(read), quality[::-1] if quality else None)):
         votes = defaultdict(int)
         for pr in range(len(seq) - k + 1):
             for pc in cindex.get(seq[pr:pr + k], []):
@@ -35,10 +35,10 @@ def align_read(read, contig, cindex, k, band=10):
         if votes:
             off, v = max(votes.items(), key=lambda x: x[1])
             if best is None or v > best[0]:
-                best = (v, off, seq)
+                best = (v, off, seq, qual)
     if best is None or best[0] < 3:
         return None
-    _, off, seq = best
+    _, off, seq, qual = best
     start = max(0, off - band)
     end = min(len(contig), off + len(seq) + band)
     if end - start < len(seq) // 2:
@@ -46,27 +46,32 @@ def align_read(read, contig, cindex, k, band=10):
     edits, ops = semi_global(seq, contig[start:end])
     if edits > 0.15 * len(seq):
         return None
-    return start, ops
+    return start, ops, qual
 
-def build_pileup(contig, reads, k):
+def build_pileup(contig, reads, k, qualities=None):
     cindex = defaultdict(list)
     for p in range(len(contig) - k + 1):
         cindex[contig[p:p + k]].append(p)
     counts = [defaultdict(int) for _ in contig]
     ins = defaultdict(lambda: defaultdict(int))
     used = 0
-    for read in reads:
-        res = align_read(read, contig, cindex, k)
+    for ri, read in enumerate(reads):
+        qual = qualities[ri] if qualities is not None else None
+        res = align_read(read, contig, cindex, k, quality=qual)
         if res is None:
             continue
         used += 1
-        start, ops = res
-        for t, jj, base in ops:
+        start, ops, qual = res
+        for t, jj, base, read_pos in ops:
             pos = start + jj
+            weight = 1.0
+            if qual is not None and read_pos is not None:
+                q = max(0, ord(qual[read_pos]) - 33)
+                weight = max(0.01, 1 - 10 ** (-q / 10))
             if t == "I":
-                ins[pos][base] += 1
+                ins[pos][base] += weight
             elif 0 <= pos < len(contig):
-                counts[pos][base] += 1
+                counts[pos][base] += weight
     return counts, ins, used
 
 def build_consensus(contig, counts, ins):
@@ -88,6 +93,7 @@ def build_consensus(contig, counts, ins):
 
 def edit_distance_banded(a, b, band=60):
     n, m = len(a), len(b)
+    band = max(band, abs(n - m))
     INF = 10 ** 9
     prev = {j: j for j in range(0, min(m, band) + 1)}
     for i in range(1, n + 1):
