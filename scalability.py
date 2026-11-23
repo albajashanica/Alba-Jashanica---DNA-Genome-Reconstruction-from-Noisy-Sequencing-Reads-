@@ -4,6 +4,8 @@ import math
 import time
 import argparse
 import tracemalloc
+import os
+import ctypes
 
 from simulator import random_genome, simulate_reads, reverse_complement
 from indexing import build_oriented_reads, build_kmer_index
@@ -19,9 +21,42 @@ def reset_peak():
         tracemalloc.reset_peak()
 
 
+def process_peak_memory_mb():
+    """Return the process peak working set without tracing every allocation."""
+    if os.name == "nt":
+        from ctypes import wintypes
+        class Counters(ctypes.Structure):
+            _fields_ = [
+                ("cb", ctypes.c_ulong), ("PageFaultCount", ctypes.c_ulong),
+                ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t),
+                ("PrivateUsage", ctypes.c_size_t),
+            ]
+        counters = Counters()
+        counters.cb = ctypes.sizeof(counters)
+        get_process = ctypes.WinDLL("kernel32").GetCurrentProcess
+        get_process.restype = wintypes.HANDLE
+        query = ctypes.WinDLL("psapi").GetProcessMemoryInfo
+        query.argtypes = [wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
+        query.restype = wintypes.BOOL
+        if query(get_process(), ctypes.byref(counters), counters.cb):
+            return counters.PeakWorkingSetSize / 1024 / 1024
+        return 0.0
+    try:
+        import resource
+        peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+        return peak / (1024 if peak < 10**10 else 1024**2)
+    except ImportError:
+        return 0.0
+
+
 def run_size(num_reads, coverage=30, read_len=100, k=12, error_rate=0.01,
              do_consensus=True, var_limit=1200):
-    tracemalloc.start()
+    trace_memory = num_reads <= 10000
+    if trace_memory:
+        tracemalloc.start()
     genome_len = num_reads * read_len // coverage
     reference = random_genome(genome_len)
 
@@ -46,7 +81,7 @@ def run_size(num_reads, coverage=30, read_len=100, k=12, error_rate=0.01,
     candidates = find_candidates_with_offset(oriented, index, k)
     t2 = time.perf_counter()
 
-    overlaps = verify_candidates(oriented, candidates)
+    overlaps = verify_candidates(oriented, candidates, k=k)
     t3 = time.perf_counter()
 
     graph = build_graph(overlaps)
@@ -60,8 +95,11 @@ def run_size(num_reads, coverage=30, read_len=100, k=12, error_rate=0.01,
         corrected = build_consensus(draft, counts, ins)
     t5 = time.perf_counter()
 
-    peak = tracemalloc.get_traced_memory()[1]
-    reset_peak()
+    if trace_memory:
+        peak = tracemalloc.get_traced_memory()[1] / 1024 / 1024
+        reset_peak()
+    else:
+        peak = process_peak_memory_mb()
 
     tp = fp = fn = accuracy = ed_sample = None
     n_variants = None
@@ -82,8 +120,10 @@ def run_size(num_reads, coverage=30, read_len=100, k=12, error_rate=0.01,
         ed_sample = edit_distance_banded(corrected, sample)
         accuracy = round(1 - ed_sample / len(sample), 4)
         t_var = round(time.perf_counter() - tv0, 2)
-        mem_var = round(tracemalloc.get_traced_memory()[1] / 1024 / 1024, 1)
-    tracemalloc.stop()
+        if trace_memory:
+            mem_var = round(tracemalloc.get_traced_memory()[1] / 1024 / 1024, 1)
+    if trace_memory:
+        tracemalloc.stop()
 
     n = len(oriented)
     longest = max(len(c) for c in contigs)
@@ -105,7 +145,7 @@ def run_size(num_reads, coverage=30, read_len=100, k=12, error_rate=0.01,
         "t_consensus": round(t5 - t4, 2),
         "t_total": round(t_total, 2),
         "ms_per_read": round(1000 * t_total / num_reads, 1),
-        "memory_mb": round(peak / 1024 / 1024, 1),
+        "memory_mb": round(peak, 1),
         "mutations_true": len(truth),
         "variants_found": n_variants,
         "variants_correct": tp,
@@ -170,6 +210,8 @@ def main():
     ap.add_argument("--no-consensus", action="store_true",
                     help="kapercen consensus dhe variant detection")
     ap.add_argument("--out", default="scalability_results.csv")
+    ap.add_argument("--append", action="store_true",
+                    help="shto madhësi të reja në CSV ekzistuese pa fshirë rezultatet")
     args = ap.parse_args()
 
     sizes = args.sizes or [300, 600, 1200, 2400, 4800, 9600, 19200]
@@ -177,7 +219,8 @@ def main():
     print("reads   genomi   naive        kandidate  overlap   max%    bases%   perdorur%  "
           "koha(s)   ms/read  mem(MB)", flush=True)
 
-    with open(args.out, "w", newline="") as f:
+    append_existing = args.append and os.path.exists(args.out) and os.path.getsize(args.out) > 0
+    with open(args.out, "a" if append_existing else "w", newline="") as f:
         w = None
         for size in sizes:
             r = run_size(size, args.coverage, args.read_len, args.k, args.error_rate,
@@ -185,7 +228,8 @@ def main():
             results.append(r)
             if w is None:
                 w = csv.DictWriter(f, fieldnames=list(r.keys()))
-                w.writeheader()
+                if not append_existing:
+                    w.writeheader()
             w.writerow(r)
             f.flush()
 

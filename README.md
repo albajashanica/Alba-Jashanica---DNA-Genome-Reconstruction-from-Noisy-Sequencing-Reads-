@@ -46,8 +46,10 @@ python main.py
 Për të ndryshuar parametrat, për shembull:
 
 ```bash
-python main.py --genome-len 2000 --reads 300 --read-len 100 --error-rate 0.01 --k 12 --min-overlap 30 --max-error 0.08
+python main.py --genome-len 333333 --reads 100000 --read-len 100 --error-rate 0.01 --k 12 --min-overlap 30 --max-error 0.08
 ```
+
+Këta janë edhe parametrat e parazgjedhur: `python main.py` nis me 100,000 reads.
 
 Për të montuar reads reale nga FASTA ose FASTQ. Kur jepet FASTQ, quality scores peshojnë votat e bazave në consensus:
 
@@ -63,23 +65,35 @@ python main.py --reads-file reads.fastq --reference reference.fasta --k 15 --min
 
 Reads duhet të përmbajnë vetëm bazat A, C, G dhe T. Kur ka shumë reads ose referenca është e gjatë, zgjidh `k` dhe pragjet sipas gjatësisë së leximeve dhe mbulimit.
 
-Programi shtyp raportin në terminal dhe ruan sekuencën te `reconstructed.fasta`, ndërsa variantet i ruan te `variants_report.txt`.
+Programi shtyp raportin në terminal dhe ruan të gjitha contig-et në `reconstructed.fasta`; contig-u i parë është consensus-i i korrigjuar. Variantet ruhen te `variants_report.txt` dhe krahasohen në contig-un kryesor.
 
 ## Testimi i shkallëzueshmërisë
 
 Për të matur performancën me disa madhësi dataset-i:
 
 ```bash
-python -u scalability.py 5000 10000 20000 --out scalability_results.csv
+python -u scalability.py 25000 50000 100000 --no-consensus --out scalability_results.csv
 ```
 
-Kjo komandë i ekzekuton testet me 5,000, 10,000 dhe 20,000 reads dhe i ruan rezultatet te `scalability_results.csv`. Nëse ky fajll ekziston, rezultatet e mëparshme mbishkruhen. Për një test më të shpejtë që mat vetëm fazat e indeksimit dhe montimit, shto `--no-consensus`:
+Kjo komandë mat indeksimin, gjenerimin e kandidatëve, overlap-et dhe montimin për 25,000, 50,000 dhe 100,000 reads. `--no-consensus` kapërcen consensus-in dhe zbulimin e varianteve në këtë test të madh. Rezultatet e fundit të matura ruhen te `scalability_results.csv`; madhësia 100,000 mund të marrë shumë minuta dhe kërkon memorie të konsiderueshme. Pa `--no-consensus`, llogariten edhe consensus-i dhe variantet, por vetëm për madhësi të vogla.
+
+Për një test më të vogël që përfshin consensus-in dhe zbulimin e varianteve:
 
 ```bash
-python -u scalability.py 5000 10000 20000 --no-consensus --out scalability_results.csv
+python -u scalability.py 300 600 1200 --out scalability_full.csv
 ```
 
-CSV-ja përfshin kohën, memorien, numrin e kandidatëve dhe overlap-eve, si dhe përqindjen e genomit të mbuluar nga contig-u më i gjatë. Indeksi heq k-mer-at me mbi 200 shfaqje për të kufizuar listat e kandidatëve; kjo mund të ulë ndjeshmërinë në rajone shumë të përsëritura. Kur përdoret `--no-consensus`, statistikat që varen nga consensus-i nuk llogariten.
+CSV-ja përfshin kohën, memorien, numrin e kandidatëve dhe overlap-eve, si dhe përqindjen e genomit të mbuluar nga contig-u më i gjatë. Për 10,000 reads e më pak memoria matet me `tracemalloc`; për dataset-et më të mëdha matet memoria kulmore e procesit, për të shmangur overhead-in e gjurmimit të çdo alokimi. Indeksi heq k-mer-at me mbi 200 shfaqje për të kufizuar listat e kandidatëve; kjo mund të ulë ndjeshmërinë në rajone shumë të përsëritura. Kur përdoret `--no-consensus`, statistikat që varen nga consensus-i nuk llogariten.
+
+Matjet e ekzekutuara në këtë projekt:
+
+| Reads | Kandidatë | Overlap-e | Contig-u më i gjatë | Koha (s) | Memoria kulmore (MB) |
+|---:|---:|---:|---:|---:|---:|
+| 25,000 | 1,302,892 | 1,046,215 | 56.0% | 368.03 | 744.7 |
+| 50,000 | 2,697,710 | 2,092,990 | 79.5% | 541.17 | 1,287.6 |
+| 100,000 | 5,553,648 | 4,177,526 | 99.8% | 1,031.69 | 2,138.1 |
+
+Këto pika përdorin `--no-consensus`; koha dhe memoria nuk përfshijnë consensus-in dhe thirrjen e varianteve.
 
 Për të krijuar grafikun nga `scalability_results.csv`:
 
@@ -95,7 +109,7 @@ Pipeline-i raporton numrin e reads të përdorura, kandidatët dhe overlap-et e 
 
 ## Kufizime
 
-Montimi greedy është heuristik dhe mund të mos zgjidhë saktë rajonet e përsëritura ose overlap-et e paqarta. K-mer-at që shfaqen mbi 200 herë hiqen nga indeksi, gjë që mund të ulë ndjeshmërinë në rajone të përsëritura. Saktësia dhe zbulimi i varianteve kërkojnë referencë të njohur; rezultatet varen nga parametrat dhe mbulimi. Skripti i shkallëzueshmërisë raporton matje për madhësitë që ekzekutohen, por ekstrapolimi te qindra mijëra reads nuk është matje e drejtpërdrejtë. Projekti është për demonstrim dhe nuk është mjet i validuar për analiza klinike.
+Montimi greedy është heuristik dhe mund të mos zgjidhë saktë rajonet e përsëritura ose overlap-et e paqarta. Matjet e ruajtura deri në 100,000 reads përdorin `--no-consensus`, prandaj ato matin indeksimin, overlap-et dhe montimin, jo consensus-in apo zbulimin e varianteve në atë madhësi. K-mer-at që shfaqen mbi 200 herë hiqen nga indeksi, gjë që mund të ulë ndjeshmërinë në rajone të përsëritura. Saktësia dhe zbulimi i varianteve kërkojnë referencë të njohur; rezultatet varen nga parametrat dhe mbulimi. Projekti është për demonstrim dhe nuk është mjet i validuar për analiza klinike.
 
 
 

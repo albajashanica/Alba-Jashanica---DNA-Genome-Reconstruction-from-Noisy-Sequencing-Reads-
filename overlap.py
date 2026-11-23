@@ -2,7 +2,7 @@ from collections import defaultdict
 from simulator import random_genome, simulate_reads
 from indexing import build_oriented_reads, build_kmer_index
 
-def find_candidates_with_offset(oriented, index, k, min_shared=3):
+def find_candidates_with_offset(oriented, index, k, min_shared=3, max_neighbors=None):
     candidates = {}
     for a, (read_a, _, seq_a) in enumerate(oriented):
         votes = defaultdict(int)
@@ -14,12 +14,19 @@ def find_candidates_with_offset(oriented, index, k, min_shared=3):
         for (b, off), c in votes.items():
             if b not in best or c > best[b][1]:
                 best[b] = (off, c)
-        for b, (off, c) in best.items():
+        
+        ranked = (sorted(best.items(), key=lambda item: item[1][1], reverse=True)
+                  if max_neighbors is not None else best.items())
+        kept = 0
+        for b, (off, c) in ranked:
             if c >= min_shared:
-                candidates[(a, b)] = off
+                candidates[(a, b)] = (off, c)
+                kept += 1
+                if max_neighbors is not None and kept >= max_neighbors:
+                    break
     return candidates
 
-def banded_overlap(a_suffix, b, band=5):
+def banded_overlap(a_suffix, b, band=5, max_edits=None):
     m, n = len(a_suffix), len(b)
     INF = 10**9
     prev = [INF] * (n + 1)
@@ -28,12 +35,17 @@ def banded_overlap(a_suffix, b, band=5):
     for i in range(1, m + 1):
         cur = [INF] * (n + 1)
         lo, hi = max(0, i - band), min(n, i + band)
+        row_min = INF
         for j in range(lo, hi + 1):
             best = prev[j] + 1
             if j > 0:
                 cost = 0 if a_suffix[i - 1] == b[j - 1] else 1
                 best = min(best, prev[j - 1] + cost, cur[j - 1] + 1)
             cur[j] = best
+            if best < row_min:
+                row_min = best
+        if max_edits is not None and row_min > max_edits:
+            return None
         prev = cur
     lo, hi = max(0, m - band), min(n, m + band)
     if lo > hi:
@@ -42,25 +54,33 @@ def banded_overlap(a_suffix, b, band=5):
     return prev[j_best]
 
 
-def verify_candidates(oriented, candidates, min_overlap=30, max_error=0.08):
+def verify_candidates(oriented, candidates, min_overlap=30, max_error=0.08, k=12):
     overlaps = []
-    for (a, b), off in candidates.items():
+    for (a, b), candidate in candidates.items():
+        if isinstance(candidate, tuple):
+            off, seed_votes = candidate
+        else:
+            off, seed_votes = candidate, None
         seq_a, seq_b = oriented[a][2], oriented[b][2]
         ov_len = min(len(seq_a) - off, len(seq_b))
         if ov_len < min_overlap:
             continue
-        band = max(5, int(ov_len * max_error) + 2)
-        # Most candidate overlaps contain only a few substitutions. A fast
-        # Hamming upper bound accepts those without allocating DP rows; use
-        # banded edit distance when indels or more errors need checking.
-        hamming = sum(x != y for x, y in zip(seq_a[off:off + ov_len], seq_b[:ov_len]))
         max_edits = int(ov_len * max_error)
+        
+        possible_seeds = max(0, ov_len - k + 1)
+        if seed_votes is not None and possible_seeds:
+            min_edits = max(0, (possible_seeds - seed_votes + k - 1) // k)
+            if min_edits > max_edits:
+                continue
+        band = max(5, int(ov_len * max_error) + 2)
+        
+        hamming = sum(x != y for x, y in zip(seq_a[off:off + ov_len], seq_b[:ov_len]))
         if hamming <= max_edits:
             edits = hamming
         else:
             a_part = seq_a[off:off + min(len(seq_a) - off, ov_len + band)]
             b_part = seq_b[:min(len(seq_b), ov_len + band)]
-            edits = banded_overlap(a_part, b_part, band=band)
+            edits = banded_overlap(a_part, b_part, band=band, max_edits=max_edits)
         if edits is None:
             continue
         error_rate = edits / max(1, ov_len)

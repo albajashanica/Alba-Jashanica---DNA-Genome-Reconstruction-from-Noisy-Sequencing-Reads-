@@ -62,7 +62,7 @@ def read_sequences(path, return_qualities=False):
     return (seqs, qualities) if return_qualities else seqs
 
 
-def run_pipeline(genome_len=2000, num_reads=300, read_len=100, error_rate=0.01,
+def run_pipeline(genome_len=333333, num_reads=100000, read_len=100, error_rate=0.01,
                  k=12, min_overlap=30, max_overlap_error=0.08,
                  reads_path=None, reference_path=None):
     if reference_path and not reads_path:
@@ -86,7 +86,7 @@ def run_pipeline(genome_len=2000, num_reads=300, read_len=100, error_rate=0.01,
     oriented = build_oriented_reads(reads)
     index = build_kmer_index(oriented, k)
     candidates = find_candidates_with_offset(oriented, index, k)
-    overlaps = verify_candidates(oriented, candidates, min_overlap, max_overlap_error)
+    overlaps = verify_candidates(oriented, candidates, min_overlap, max_overlap_error, k=k)
     graph = build_graph(overlaps)
     contigs = sorted(greedy_assemble(oriented, graph), key=len, reverse=True)
     if not contigs:
@@ -126,6 +126,7 @@ def run_pipeline(genome_len=2000, num_reads=300, read_len=100, error_rate=0.01,
         "avg_overlap_len": round(sum(o[2] for o in overlaps) / max(1, len(overlaps)), 1),
         "avg_overlap_quality": round(sum(1 - o[3] for o in overlaps) / max(1, len(overlaps)), 3),
         "contigs": len(contigs), "reconstruction_length": len(corrected),
+        "assembled_bases": sum(map(len, contigs)) - len(draft) + len(corrected),
         "true_length": len(sample) if sample is not None else (len(reference) if reference else None),
         "edit_distance_sample": ed_sample, "accuracy": accuracy,
         "edit_distance_reference": ed_ref, "accuracy_reference": accuracy_ref,
@@ -134,14 +135,17 @@ def run_pipeline(genome_len=2000, num_reads=300, read_len=100, error_rate=0.01,
         "time_s": round(elapsed, 2), "peak_memory_mb": round(peak / 1024 / 1024, 2),
         "reference_available": reference is not None,
     }
-    return corrected, final_rows, stats
+    output_contigs = [corrected] + contigs[1:]
+    return corrected, final_rows, stats, output_contigs
 
 
-def save_outputs(corrected, final_rows):
+def save_outputs(corrected, final_rows, contigs=None):
+    contigs = contigs or [corrected]
     with open("reconstructed.fasta", "w", encoding="ascii") as f:
-        f.write(f">reconstructed_genome length={len(corrected)}\n")
-        for i in range(0, len(corrected), 70):
-            f.write(corrected[i:i + 70] + "\n")
+        for ci, sequence in enumerate(contigs, 1):
+            f.write(f">contig_{ci} length={len(sequence)}\n")
+            for i in range(0, len(sequence), 70):
+                f.write(sequence[i:i + 70] + "\n")
     with open("variants_report.txt", "w", encoding="utf-8") as f:
         f.write("lloji\tpozicioni\tbaza_ref\tbaza_re\treads_variant\treads_ref\n")
         for (kind, pos, ref, alt), a, r, _ in final_rows:
@@ -159,6 +163,7 @@ def print_report(s):
     print(f"Cilesia mesatare e overlap:    {s['avg_overlap_quality']}")
     print(f"Numri i contigs (draft):       {s['contigs']}")
     print(f"Gjatesia e rindertimit:        {s['reconstruction_length']} (referenca: {s['true_length']})")
+    print(f"Baza gjithsej ne contig-e:     {s['assembled_bases']}")
     print(f"Edit distance vs mostra:       {s['edit_distance_sample']}")
     print(f"Saktesia vs mostra:            {s['accuracy']}")
     print(f"Edit distance vs referenca:    {s['edit_distance_reference']}")
@@ -174,8 +179,8 @@ def print_report(s):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="DNA genome reconstruction")
-    ap.add_argument("--genome-len", type=int, default=2000)
-    ap.add_argument("--reads", type=int, default=300)
+    ap.add_argument("--genome-len", type=int, default=333333)
+    ap.add_argument("--reads", type=int, default=100000)
     ap.add_argument("--read-len", type=int, default=100)
     ap.add_argument("--error-rate", type=float, default=0.01)
     ap.add_argument("--k", type=int, default=12)
@@ -185,9 +190,9 @@ if __name__ == "__main__":
     ap.add_argument("--reference", help="Optional reference FASTA for variant reporting")
     args = ap.parse_args()
 
-    corrected, final_rows, stats = run_pipeline(
+    corrected, final_rows, stats, output_contigs = run_pipeline(
         args.genome_len, args.reads, args.read_len, args.error_rate,
         args.k, args.min_overlap, args.max_error, args.reads_file, args.reference)
     print_report(stats)
-    save_outputs(corrected, final_rows)
+    save_outputs(corrected, final_rows, output_contigs)
     print("U ruajten: reconstructed.fasta dhe variants_report.txt")
